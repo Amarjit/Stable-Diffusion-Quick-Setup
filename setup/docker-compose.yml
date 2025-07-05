@@ -1,0 +1,27 @@
+services:
+  comfyui:
+    # This uses a reliable, pre-built image from the community.
+    image: universonic/comfyui
+    container_name: comfyui-sd
+    # This line tells Docker Compose to load variables from our .env file
+    env_file: .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    ports:
+      # ComfyUI runs on port 8188 by default
+      - "8188:8188"
+    volumes:
+      # Mounts your permanent data folders to the correct paths inside this specific image
+      - ../models/checkpoints:/app/comfyui/models/checkpoints
+      - ../models/clip:/app/comfyui/models/clip
+      - ../models/loras:/app/comfyui/models/loras
+      - ../outputs:/app/comfyui/output
+      # Mounts our entrypoint script
+      - ./scripts:/scripts
+    # This OVERRIDES the image's default starting command, ensuring our script runs first.
+    entrypoint: /bin/bash /scripts/entrypoint.sh

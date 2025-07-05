@@ -1,0 +1,6 @@
+models/checkpoints/*
+models/clip/*
+models/loras/*
+outputs/*
+!.keep
+.env

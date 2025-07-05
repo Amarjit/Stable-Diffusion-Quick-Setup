@@ -1,0 +1,141 @@
+# Stable Diffusion Docker Setup
+
+This repository provides scripts and configuration to quickly set up a secure, isolated, and powerful Stable Diffusion environment using Docker. It is designed to be robust and reproducible for both Windows and native Linux systems.
+
+This setup uses **ComfyUI** as the user interface and is configured to download and run the **Stable Diffusion 3.5 Medium** model.
+
+## Table of Contents
+- [How It Works](#how-it-works)
+- [Prerequisites](#prerequisites)
+- [Setup Instructions](#setup-instructions)
+  - [For Windows Users](#for-windows-users)
+  - [For Native Ubuntu/Linux Users](#for-native-ubuntulinux-users)
+- [Project Launch](#project-launch)
+- [Troubleshooting](#troubleshooting)
+
+---
+
+## How It Works
+
+This setup uses a "Configuration as Code" approach. The scripts prepare your host machine, and the `docker-compose.yml` file defines the application environment.
+
+- **Host Preparation (`setup/setup.ps1` / `setup/setup.sh`):** These scripts ensure your operating system has the necessary programs (WSL2, Docker) to run the container.
+- **Docker Compose (`docker-compose.yml`):** This file defines the ComfyUI service using a reliable, pre-built community Docker image. It maps local folders for your models and outputs into the container for permanent storage.
+- **Entrypoint Script (`entrypoint.sh`):** This script runs automatically every time the container starts. It checks for the required AI models (SD3.5 and its text encoders) and downloads them if they are missing before launching the ComfyUI application.
+
+---
+
+## Prerequisites
+
+- **NVIDIA GPU:** The provided `docker-compose.yml` is configured by default to use an NVIDIA GPU for hardware acceleration.
+- **Docker Desktop (for Windows users):** You must have Docker Desktop installed and running.
+- **Git:** You will need Git to clone this repository.
+- **Hugging Face Account:** To download the SD3.5 model, you will need a free Hugging Face account and a personal Access Token.
+
+---
+
+## Setup Instructions
+
+Please follow the instructions for your specific operating system.
+
+### For Windows Users
+
+The `setup.ps1` PowerShell script prepares your Windows environment. It will:
+
+- Ensure WSL2 (Windows Subsystem for Linux) is enabled.
+- Create a dedicated, named WSL instance called `Ubuntu-SD` to avoid conflicts.
+- Automatically create a default user (`sduser`) and password (`docker`) within that instance.
+
+**How to Run the Script:**
+
+1.  Clone this repository to your local machine.
+2.  Open **PowerShell as an Administrator**.
+3.  Because of Windows security policies, you must bypass the execution policy for this single run. Copy and paste the following command, replacing the path with the correct path to your saved `setup.ps1` file.
+
+    ```powershell
+    powershell.exe -ExecutionPolicy Bypass -File "C:\path\to\your\setup.ps1"
+    ```
+4.  Press **Enter**. The script will run automatically. If it's the first time, it may require a system reboot. If so, please reboot and run the command again.
+
+> ⚠️ **Important Notice: Ubuntu Download URL**
+>
+> The `setup.ps1` script downloads an official Ubuntu image. This URL can sometimes change. If you encounter a download error, you will need to update the `$UbuntuImageURL` variable in the script.
+>
+> 1.  **Find the new URL here:** [https://cloud-images.ubuntu.com/jammy/current/](https://cloud-images.ubuntu.com/jammy/current/)
+> 2.  **Look for the correct file.** You need the root filesystem tarball, which will look like: `jammy-server-cloudimg-amd64-root.tar.xz`.
+
+### For Native Ubuntu/Linux Users
+
+The `setup.sh` script prepares your Ubuntu environment by installing Docker Engine and Docker Compose.
+
+**How to Run the Script:**
+
+1.  Clone this repository to your local machine.
+2.  Open a terminal and navigate into the repository's directory.
+3.  Make the script executable: `chmod +x setup.sh`
+4.  Run the script. You will be prompted for your password. `./setup.sh`
+5.  **IMPORTANT:** After the script finishes, you **must log out and log back in** for the user group changes to take effect.
+
+---
+
+## Project Launch
+
+After running the appropriate setup script for your OS, your environment is ready.
+
+1.  **Create `.env` file for Authentication:**
+    * In your main project folder, copy `.env.sample` to a new file named `.env`.
+    * Go to your [Hugging Face Access Tokens page](https://huggingface.co/settings/tokens) and create a new token with **`read`** permissions.
+    * Add the token to your `.env` file like this: `HF_TOKEN=hf_YourTokenGoesHere`
+
+2.  **Create Folder Structure:**
+    * In your main project folder, this is the following directory structure. The `entrypoint.sh` script will download models into these folders.
+        ```
+        /models
+        ├──/checkpoints
+        ├──/clip        <-- CLIP and T5 text encoders go here
+        └──/loras
+        /outputs
+        ```
+
+3.  **Launch the Container:**
+    * Open a terminal in your main project directory and run:
+        ```bash
+        docker-compose up -d
+        ```
+    * The first time you run this, it will download the ComfyUI image and then all the required AI models. This will take a significant amount of time.
+
+4.  **Access the UI:**
+    * Once the container is running, open your web browser and navigate to:
+        **`http://127.0.0.1:8188`**
+
+---
+
+## Troubleshooting
+
+* **Checking Logs:** If the container fails to start or you have issues, the first step is to check the logs. Open a terminal in your project directory and run:
+    ```bash
+    docker-compose logs -f comfyui-sd
+    ```
+    This will show you the live output from the container, which usually contains specific error messages. Press `Ctrl+C` to exit the log view.
+
+* **Error: `'NoneType' object has no attribute 'tokenize'` (when running a prompt in ComfyUI):**
+    This error indicates that ComfyUI failed to load the necessary text encoder models for Stable Diffusion 3.5. This almost always happens because the default `Load Checkpoint` node (or similar) cannot find the CLIP and T5 text encoder weights *within* the `sd3.5_medium.safetensors` model itself.
+
+    **Why it happens:** The base `sd3.5_medium.safetensors` checkpoint only contains the core diffusion model (UNet); its CLIP and T5 text encoders are provided as separate files (`clip_g.safetensors`, `clip_l.safetensors`, `t5xxl_fp16.safetensors`). The default `Load Checkpoint` node won't automatically load these separate files.
+
+    **The Fix:**
+    Your `entrypoint.sh` ensures these necessary files (`clip_g.safetensors`, `clip_l.safetensors`, and `t5xxl_fp16.safetensors`) are downloaded into your local `models/clip/` directory.
+    Within ComfyUI, you **must use specific nodes designed for Stable Diffusion 3.x models** to load all the components correctly:
+    1.  **Use a `TripleCLIPLoader` node:** Connect this node's `CLIP` output to your `CLIP Text Encode` nodes. This node is responsible for finding and loading `clip_g`, `clip_l`, and `t5xxl` from your `models/clip/` directory. Remove the CLIP links from the `Load Checkpooint` node.
+    2.  **Ensure your `CLIP Text Encode` nodes are compatible:** While the standard `CLIP Text Encode` *can* sometimes work with a `TripleCLIPLoader`'s output, for robust SD3.x workflows, it's highly recommended to use SD3-specific text encoding nodes if available (e.g., `SD3TextEncode` from custom node packs).
+    * **In summary:** The `Load Checkpoint` node loads the main model, but a separate `TripleCLIPLoader` is required to provide the text encoders to your prompt encoding nodes.
+
+
+* **`403 Forbidden` or `401 Unauthorized` Error:** This means your Hugging Face Access Token is missing or incorrect. Ensure your `.env` file is created correctly in the root project folder and contains your valid `read` token.
+
+* **Models are 0 bytes / Downloads Fail:** If a model download is interrupted, `wget` may leave behind an empty 0-byte file. The script will see this file and skip downloading it on the next run.
+    * **Fix:** Stop the container with `docker-compose down`. Manually go into your local `models` subdirectories (`checkpoints`, `clip`, `t5`) and **delete any 0-byte files**. Then run `docker-compose up -d` again to re-trigger the download.
+
+* **`docker` command not found (Windows):** Ensure Docker Desktop is installed and that you have enabled WSL Integration for the `Ubuntu-SD` instance in `Settings > Resources > WSL Integration`.
+
+* **Permission Denied (Linux):** If you get a "permission denied" error when running `docker-compose`, it means you did not log out and log back in after running `setup.sh`.

@@ -1,6 +1,7 @@
 models/checkpoints/*
 models/clip/*
 models/loras/*
+workflows/*
 outputs/*
 !.keep
 .env

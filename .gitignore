@@ -3,5 +3,6 @@ models/clip/*
 models/loras/*
 workflows/*
 outputs/*
+custom_nodes/*
 !.keep
 .env

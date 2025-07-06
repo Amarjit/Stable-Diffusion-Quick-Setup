@@ -21,6 +21,7 @@ services:
       - ../models/clip:/app/comfyui/models/clip
       - ../models/loras:/app/comfyui/models/loras
       - ../outputs:/app/comfyui/output
+      - ../custom_nodes:/app/comfyui/custom_nodes
       # Mounts our entrypoint script
       - ./scripts:/scripts
     # This OVERRIDES the image's default starting command, ensuring our script runs first.

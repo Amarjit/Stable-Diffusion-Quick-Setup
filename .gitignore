@@ -2,6 +2,7 @@ models/checkpoints/*
 models/clip/*
 models/loras/*
 models/vae/*
+models/unet/*
 workflows/*
 outputs/*
 custom_nodes/*

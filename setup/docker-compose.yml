@@ -21,6 +21,7 @@ services:
       - ../models/clip:/app/comfyui/models/clip
       - ../models/loras:/app/comfyui/models/loras
       - ../models/vae:/app/comfyui/models/vae
+      - ../models/unet:/app/comfyui/models/unet      
       - ../outputs:/app/comfyui/output
       - ../custom_nodes:/app/comfyui/custom_nodes
       # Mounts our entrypoint script

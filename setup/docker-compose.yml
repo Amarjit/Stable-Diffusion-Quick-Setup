@@ -17,4 +17,4 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-    
+    command: python3 main.py --listen --port 8188 --lowvram
